@@ -1,0 +1,238 @@
+﻿/*
+  CS5232 Project (Single Person Project)
+  @Author : YANG MO
+  @Matric Number: A0091836X
+*/
+
+
+#define numOfCourses 5;
+#define numOfOtherStudents 5;
+enum {PRE, OPEN, SUSPEND, SHUTDOWN};
+
+
+var myTotalDesire = 0;
+var myTotalCourses = 0;
+var maxIntegerValueOfRank = numOfCourses;
+
+/* Variable Conditions */
+var myDesire[numOfCourses] = [1,1,1,1,4];
+var courseQuota[numOfCourses] = [3,3,3,3,3];
+//var otherStudentRank[numOfCourses][numOfOtherStudents] = [1,2,3,4,5,
+//														  2,3,4,5,1,
+//														  3,4,5,1,2,
+//														  4,5,1,2,3,
+//														  5,1,2,3,4];
+														  
+//var otherStudentRank[numOfCourses][numOfOtherStudents] = [1,1,1,1,1,
+//														  2,2,2,2,2,
+//														  3,3,3,3,3,
+//														  4,4,4,4,4,
+//														  5,5,5,5,5];
+
+var otherStudentRank[numOfCourses][numOfOtherStudents] = [3,2,3,4,5,
+														  4,3,4,5,1,
+														  5,4,5,1,2,
+														  1,5,1,2,3,
+														  2,1,2,3,4];
+
+
+var myWorkloadLimit = PartTimeStudentWorkLoadLimit;
+#define allowExtraQuotaIfHaveSameRank false;
+#define PartTimeStudentWorkLoadLimit 3;
+#define FullTimeStudentWorkLoadLimit 5;													 
+
+/* end of Variable Conditions */
+
+var myRank[numOfCourses] = [-1,-1,-1,-1,-1];
+var courseProcessed[numOfCourses] = [-1,-1,-1,-1,-1];
+var courseAllocatedToMe[numOfCourses] = [-1,-1,-1,-1,-1];
+
+var numOfStudentPerCourse[numOfCourses] = [0,0,0,0,0];
+var totalNumOfStudentForCurrentCourse = 0;
+
+var courseRankingIndex = 0;
+var numOfPeopleHigherThanMine = 0;
+var systemEnd = false;
+var systemState = PRE;
+
+var courseCheckingIndex = 0;
+var Did_I_finished_Ranking = false;
+
+
+AdminSystem() = ifa(systemState == PRE){
+				    SystemIsNowOpen{systemState = OPEN;} -> AdminSystem()
+				    
+			   } else ifa(systemState == OPEN){	
+			   			  ifa(Did_I_finished_Ranking){
+			   			  	 User_Finshed_ranking{systemState = SUSPEND;} -> AdminSystem()
+			   			  } else {
+			   			  	 User_Still_Ranking -> AdminSystem()
+			   			  }
+
+			   } else ifa(systemState == SUSPEND){
+			   
+			   	    ifa(&&x:{0..numOfCourses -1}@(courseProcessed[x] != (-1)) && systemEnd == true){
+			   	    	All_Courses_Allocated{systemState = SHUTDOWN;} -> AdminSystem()
+			   	    } else {
+			   	        ProcessingCourses -> AdminSystem()
+			   	    }
+			   	    
+			   } else ifa(systemState == SHUTDOWN) {
+					System_Shut_Down ->Skip
+			   } else {
+			   	 	continue -> AdminSystem()
+			   };
+
+I_Rank() =  ifa(systemState == OPEN){
+				ifa(&&i:{0..numOfCourses -1}@(myRank[i] != (-1))){
+					I_finshed_Ranking{Did_I_finished_Ranking = true;} -> Skip
+				} else {
+				  ifa(&&x:{0..numOfCourses -1}@(myRank[x] != 1)){
+				  	  I_rankNo1ForCourse.(courseRankingIndex+1){
+				  	  	      myRank[courseRankingIndex] = 1; 
+				  	  	      courseRankingIndex = courseRankingIndex + 1;
+				  	  } -> I_Rank()} []
+				  ifa(&&x:{0..numOfCourses -1}@(myRank[x] != 2)){
+				  	  I_rankNo2ForCourse.(courseRankingIndex+1){
+				  	  		   myRank[courseRankingIndex] = 2; 
+				  	  		   courseRankingIndex = courseRankingIndex + 1;
+				  	  } -> I_Rank()} []
+				  ifa(&&x:{0..numOfCourses -1}@(myRank[x] != 3)){
+				  	  I_rankNo3ForCourse.(courseRankingIndex+1){
+				  	  	       myRank[courseRankingIndex] = 3; 
+				  	  	       courseRankingIndex = courseRankingIndex + 1;
+				  	  } -> I_Rank()} []
+				  ifa(&&x:{0..numOfCourses -1}@(myRank[x] != 4)){
+				  	  I_rankNo4ForCourse.(courseRankingIndex+1){
+				  	  		   myRank[courseRankingIndex] = 4; 
+				  	  		   courseRankingIndex = courseRankingIndex + 1;
+				  	  } -> I_Rank()} []
+				  ifa(&&x:{0..numOfCourses -1}@(myRank[x] != 5)){
+				  	  I_rankNo5ForCourse.(courseRankingIndex+1){
+				  	  		   myRank[courseRankingIndex] = 5; 
+				  	  		   courseRankingIndex = courseRankingIndex + 1;
+				  	  } -> I_Rank()}
+				}
+			} else ifa(systemState == PRE){
+				I_waiting_for_system_open -> I_Rank()
+			} else ifa(systemState == SUSPEND) {
+				I_waiting_for_result -> I_Rank()
+			} else ifa(systemState == SHUTDOWN) {
+				Syetem_shut_down_I_cannot_access -> Skip
+			};
+		
+
+
+SystemChecking() = ifa(systemState == SUSPEND){
+			   			ifa(courseCheckingIndex >= numOfCourses && (&&x:{0..numOfCourses -1}@(courseProcessed[x] != (-1)))){
+									All_Courses_Processed{systemEnd = true;} -> SystemChecking()
+					   	} else {
+					   			checkCourse.(courseCheckingIndex+1){
+							   			var index = 0;
+							   			var highestRank = myRank[courseCheckingIndex];
+							   			
+							   			while(index < numOfOtherStudents){
+							   				if(otherStudentRank[courseCheckingIndex][index] < myRank[courseCheckingIndex]){
+							   						numOfPeopleHigherThanMine = numOfPeopleHigherThanMine + 1;		
+							   				} else if(otherStudentRank[courseCheckingIndex][index] == myRank[courseCheckingIndex]){
+							   					if(allowExtraQuotaIfHaveSameRank){
+							   						numOfPeopleHigherThanMine = numOfPeopleHigherThanMine;
+							   					} else {
+							   						numOfPeopleHigherThanMine = numOfPeopleHigherThanMine + 1;
+							   					}
+							   				}
+							   				
+							   				if(otherStudentRank[courseCheckingIndex][index] < highestRank){
+							   					highestRank = otherStudentRank[courseCheckingIndex][index];
+							   				}
+												index = index + 1;
+							   			}		
+							   			
+							   			
+							   			while(highestRank <= maxIntegerValueOfRank && numOfStudentPerCourse[courseCheckingIndex] < courseQuota[courseCheckingIndex]){
+							   			    var loop_index = 0;
+							   			    
+							   			    if(myRank[courseCheckingIndex] == highestRank && myTotalCourses < myWorkloadLimit ){
+								   					numOfStudentPerCourse[courseCheckingIndex] = numOfStudentPerCourse[courseCheckingIndex] + 1;
+								   			}
+							   			    
+								   			while(loop_index < numOfOtherStudents){
+								   				
+								   				if(otherStudentRank[courseCheckingIndex][loop_index] == highestRank){
+								   				   		numOfStudentPerCourse[courseCheckingIndex] = numOfStudentPerCourse[courseCheckingIndex] + 1;		   				   		
+								   				}		   				
+								   						   				
+								   				if(numOfStudentPerCourse[courseCheckingIndex] >= courseQuota[courseCheckingIndex] && !allowExtraQuotaIfHaveSameRank){
+								   				   	numOfStudentPerCourse[courseCheckingIndex] = courseQuota[courseCheckingIndex];
+								   				}
+								   				   
+								   				
+								   				loop_index = loop_index + 1;
+								   			}
+								   			
+								   			highestRank = highestRank + 1;
+								   		}
+						   		} -> totalNumberofStudentsIs.(numOfStudentPerCourse[courseCheckingIndex]){courseProcessed[courseCheckingIndex] = 1; }->
+				   		
+					   			ifa(courseQuota[courseCheckingIndex] > numOfPeopleHigherThanMine && myTotalCourses < myWorkloadLimit){
+					   				I_Get_Course_.(courseCheckingIndex+1){
+					   						courseAllocatedToMe[courseCheckingIndex] = 1;
+					   						myTotalDesire = myTotalDesire + myDesire[courseCheckingIndex];
+					   						courseCheckingIndex = courseCheckingIndex + 1;
+					   						myTotalCourses = myTotalCourses + 1;
+					   						numOfPeopleHigherThanMine = 0;
+					   				} -> SystemChecking()
+					   			} else {
+					   			    I_Did_Not_Get_Course_.(courseCheckingIndex+1){
+					   			    		courseCheckingIndex = courseCheckingIndex + 1;
+					   			    		numOfPeopleHigherThanMine = 0;
+					   			    } -> ifa(myTotalCourses >= myWorkloadLimit){
+					   			    		 Reason_Cannot_Overload -> SystemChecking()
+					   			    	 } else {
+					   			    	 	 Reason_OthersGotHigherRank -> SystemChecking()
+					   			    	 }
+					   			  
+					   			}
+		   				}
+				   } else ifa(systemState == OPEN){
+				   	   system_is_waiting_for_user_finish_ranking -> SystemChecking()
+				   } else ifa(systemState == PRE){
+				   	   system_not_open_yet -> SystemChecking()
+				   } else ifa(systemState == SHUTDOWN){
+				   	   system_is_shut_down -> Skip
+				   };
+		   
+
+
+CourseResgistration() = AdminSystem()|| I_Rank()|| SystemChecking();
+
+
+
+#define finshedRanking (&&x:{0..numOfCourses -1}@(myRank[x] != (-1)));
+#define finshedAllocating (&&x:{0..numOfCourses -1}@(courseProcessed[x] != (-1)));
+
+#define System_Error_Rank_Before_System_Open (||x:{0..numOfCourses -1}@(myRank[x] != (-1))) && systemState == PRE;
+#define System_Error_Duplicate_Rank_For_Two_Courses (||x:{0..numOfCourses - 1} @(||y:{0..numOfCourses - 1} @(myRank[x] == myRank[y] && x != y))) && systemState == SUSPEND;
+#define System_Error_Exceed_Quota_When_Not_Allowed (||x:{0..numOfCourses -1}@(numOfStudentPerCourse[x] > courseQuota[x])) && allowExtraQuotaIfHaveSameRank == false;
+#define System_Error_Acquired_Course_More_Than_Possible (myTotalCourses > numOfCourses);
+#define System_Error_Change_To_Suspend_Before_I_Finshed_Bidding (||x:{0..numOfCourses -1}@(myRank[x] == -1)) && systemState == SUSPEND; 
+#define System_Error_Number_Of_Allocated_Courses_Exceed_Workload_Limit (myTotalCourses > myWorkloadLimit); 
+
+
+#assert CourseResgistration() deadlockfree;
+
+#assert CourseResgistration reaches finshedRanking;
+#assert CourseResgistration() reaches finshedAllocating;
+
+#assert CourseResgistration() |= !<>[] System_Error_Rank_Before_System_Open;
+#assert CourseResgistration() |= !<>[] System_Error_Duplicate_Rank_For_Two_Courses;
+#assert CourseResgistration() |= !<>[] System_Error_Exceed_Quota_When_Not_Allowed;
+#assert CourseResgistration() |= !<>[] System_Error_Acquired_Course_More_Than_Possible;
+#assert CourseResgistration() |= !<>[] System_Error_Change_To_Suspend_Before_I_Finshed_Bidding;
+#assert CourseResgistration() |= !<>[] System_Error_Number_Of_Allocated_Courses_Exceed_Workload_Limit;
+
+
+#define courseAllocationDone  (systemState == SHUTDOWN);
+
+#assert CourseResgistration() reaches courseAllocationDone with max(myTotalCourses);
+#assert CourseResgistration() reaches courseAllocationDone with max(myTotalDesire);
